@@ -1,0 +1,1025 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadVUE Pro Cloud</title>
+<meta name="Description" content="Set your baud speed and hit connect. A serial terminal that runs without any plugins in chrome.">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    * {
+        background-color: #ECECEC;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        padding: 0px;
+    }
+    .horizontal-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 75%;
+        color: #000000;
+        margin-top: 10px;
+    }
+    .Header_Title{
+        text-align: left;
+        background-color: #B2E4FF;
+        font-size: xx-large;
+    }
+    .right {
+        text-align: right;
+        background-color: #B2E4FF;
+    }
+    .container2 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+    }
+    .button {
+        width: 25%;
+        height: 25px; 
+        color: #FFFFFF;
+    }
+    .subheading {
+        font-size: 14px; 
+        padding-right: 5px; 
+    }
+    .entrybox {
+        font-size: 14px; 
+        padding-right: 5px; 
+    }
+    button,
+    datalist {
+        background-color: #007BC6;
+        border: none; 
+        border-bottom: 1px solid #002942;
+        border-right: 1px solid #002942;
+    }
+    input[type=text] { 
+        width: 100px;
+        color: #000000;
+        border: none; 
+    }
+    [type="checkbox"] {
+        vertical-align: middle;
+        font-size: 14px;
+    }
+    #topBanner {
+        width: calc(100% - 10px);
+        overflow: scroll;
+        background-color: #B2E4FF;
+        padding: 5px;
+        margin: 0px;
+    }
+    #reading-content {
+        display: flex;
+    }
+    #serialResults {
+        white-space: pre;
+        height: 30%;
+        width: 75%;
+        border-style: solid;
+        overflow-y: scroll;
+        background-color: #000000;
+        color: #FFFFFF;
+        padding: 10px;
+        margin: 0px;
+        float: left;
+    }
+    #right-section {
+        padding-left: 10px;
+        padding-right: 10px;
+        background-color: #ECECEC;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        width: 25%;
+        height: 25vh;
+        margin-top: -23px;
+    }
+    #right-section2 {
+        padding-left: 10px;
+        padding-right: 10px;
+        background-color: #ECECEC;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        width: 25%;
+        height: 25vh;
+    }
+    #right-section3 {
+        padding-left: 10px;
+        padding-right: 10px;
+        background-color: #ECECEC;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        width: 25%;
+        height: 25vh;
+    }
+    .value-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: left;
+        width: 100%;
+        text-align: left; 
+    }
+    .value-label {
+        color: #000000;
+        font-size: 16px;
+        margin-bottom: 5px;
+    }
+    #peak-value {
+        background-color: #000000;
+        display: flex;
+        justify-content: left;
+        padding-left: 10px;
+        align-items: center;
+        color: #0000FF;
+        font-size: 16px;
+        width: 100%;
+        height: 50px;
+    }
+    #low-value {
+        background-color: #000000; 
+        display: flex;
+        justify-content: left;
+        padding-left: 10px;
+        align-items: center;
+        color: #FF0000;
+        font-size: 16px;
+        width: 100%;
+        height: 50px; 
+    }
+    
+    #button {
+        width: 350px;
+        height: 25px; 
+        color: #FFFFFF;
+    }
+
+    #small-button {
+        width: 200px;
+        height: 25px; 
+        color: #FFFFFF;
+    }
+
+    .outputBox {
+        width: 75%;
+        height: 30vh;
+        background-color: #000000;
+        border: 1px solid;
+        box-sizing: border-box;
+        color: #FFFFFF;
+        font-size: 120px;
+        text-align: right; 
+        vertical-align: middle;
+    }
+    /* New styles for horizontal alignment */
+    .horizontal-align {
+        display: flex;
+    }
+    .horizontal-align label {
+        margin-right: 10px;
+    }
+    .horizontal-align select {
+        flex-grow: 1;
+    }
+
+    /* New styles for button container */
+    .button-container {
+        justify-content: space-between;
+        display: flex;
+        width: 74%;
+        margin: 0px; /* Center the container */
+    }
+
+    /* New styles for the scrollable table */
+    #table-container {
+        width: 100%;
+        height: 345px;
+        overflow-y: scroll;
+        border: 1px solid #ccc;
+        background-color: black;
+    }
+
+    #data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: black;
+    }
+
+    #data-table th, #data-table td {
+        padding: 8px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        background-color: black; 
+        color: white; 
+    }
+
+    #data-table th {
+        background-color: black;
+    }
+    #dataChart {
+    background-color: #000000; /* Set the background color to black */
+    width: 100%;
+    height: 100%;
+}
+</style>
+</head>
+<body>
+<div class="horizontal-container" id="topBanner"> 
+    <label class="Header_Title" for="ProductName">LoadVUE Pro Cloud - Single Channel Display</label>
+    <button id="connect" onclick="connectSerial()" style="margin-right: 98px;height: 36px;font-size: 18px;" class="button">Connect Serial Port</button>
+    <button id="disconnect" style="display: none;margin-right: 98px;height: 36px;font-size: 18px;" onclick="disconnectSerial()" class="button">Disconnect</button>
+    <img class="right" src="images/loadstar_sensors_logo.png">
+</div>
+<div class="horizontal-container" id="id-capacity-units-connect">
+    <label class="subheading">ID:</label>
+    <input type="text" class="entrybox" id="sensorID" readonly>
+    <label class="subheading">Capacity:</label>
+    <input type="text" class="entrybox" id="sensorCapacity" readonly>
+    <label class="subheading">Units:</label>
+    <input type="text" class="entrybox" id="sensorUnits" readonly>
+    <label class="subheading">Baud:</label>
+    <input type="text" id="baud" list="baudList" style="width: 10ch;" value = "9600" onclick="this.value = ''"
+        onchange="localStorage.baud = this.value">
+    <datalist id="baudList">
+        <option value="9600">9600</option>
+        <option value="230400">230400</option>
+    </datalist>
+</div>
+<div id="middle" style="margin-top:10px;">
+    <div id="reading-content">
+        <div id="outputReading" class="outputBox"></div>   
+        <div id="right-section" class="horizontal-align">
+            <div class="value-container">
+                <div class="value-label" style="margin-top:-5px; font-size: 14px !important;">Peak:</div>
+                <div id="peak-value" style="margin-top:7px;">N/A</div>
+            </div>
+            <div class="value-container">
+                <div class="value-label">Low:</div>
+                <div id="low-value">N/A</div>
+            </div>
+            <div class="horizontal-align" style="margin-top:10px;">
+                <label class="value-label">Resolution:</label>
+                <select id="resolutionSelect" onchange="return updateResolution()">
+                    <option value="0">x</option>
+                    <option value="1">x.x</option>
+                    <option value="2" selected>x.xx</option>
+                </select>
+            </div>
+            <div class="horizontal-align" style="margin-top:10px;">
+                <label class="value-label">Units:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>
+                <select id="unitSelect" onchange="updateUnits()">
+                    <option value="lb">lb</option>
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="N">N</option>
+                </select>
+            </div>
+            <div class="horizontal-align" style="margin-top:10px;">
+                <label class="value-label">Average:&nbsp;&nbsp;&nbsp;&nbsp;</label>
+                <select id="averageReading" onchange="averageReading()">
+                    <option value="1">1</option>
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="button-container" style="margin-top:5px;">
+    <button id="tare"  onclick="tare()" style="color:white; width:49%; height: 25px;display: none;">Tare</button>
+    <button id="read" onclick="showReading()" style="color:white; width: 49%; height: 25px; display: none;">Read</button>
+    <button id="stop" onclick="stopReading()" style="color:white; width: 49%; height: 25px; display: none;">Stop</button>
+</div>
+
+<!-- Force Vs Time Plot -->
+
+<div style="margin-top:10px; margin-bottom: 10px; font-size: 14; font-weight: bold;">
+    Force vs Time Plot:&nbsp;<span id="graphtype" style="text-transform: capitalize;"></span></div>
+<div style="display: flex;">
+    <div id="graph-container" style="width: 75%; height: 30vh;">
+        <canvas id="dataChart" style="width: 100%; height: 100%;"></canvas>
+    </div>  
+    <div id="right-section2" class="horizontal-align">
+        <button onclick="showCumulativeGraph()" style="color:white; width: 100%; height: 25px;">Cumulative</button>
+        <button onclick="showRecentGraph()" style="margin-top: 10px; color:white; width: 100%; height: 25px;">Strip Chart</button>
+    </div>
+</div>
+   
+<!-- Log Data -->
+<div style="margin-top:10px; margin-bottom: 10px; font-size: 14; font-weight: bold;">Log Data</div>
+<div style="display: flex;">
+    <div id="table-container" style="width: 75%; font-size: 12px;">
+        <table id="data-table">
+           
+            <tbody>
+                <!-- Data rows will be dynamically added here -->
+            </tbody>
+        </table>
+    </div>
+    <div id="right-section3" class="horizontal-align">
+        <button onclick="saveData()" style="color:white; width: 100%; height: 25px;">Save Data</button>
+    </div>
+</div>
+
+<script>
+    console.log = function() {}
+    var port, textEncoder, writableStreamClosed, writer, historyIndex = -1;
+    const lineHistory = [];
+    const sensorData = [];
+    const timestamps = [];
+    let readingInterval = null;  // To manage the live reading update interval
+    let peakValue = -0.00;  // Initialize peak value
+    let lowValue = 0.00;  // Initialize low value
+
+    let currentUnit = "lb";  // Default unit
+    let currentResolution = 2;  // Default resolution (x.xx)
+    const conversionFactors = {
+        lb: { lb: 1, kg: 0.453592, g: 453.592, N: 4.44822 },
+        kg: { lb: 2.20462, kg: 1, g: 1000, N: 9.81 },
+        g: { lb: 453.59, kg: 0.001, g: 1, N: 0.0098 },
+        N: { lb: 0.22480, kg: 0.10197, g: 101.972, N: 1 }
+    };  // Conversion factors
+ 
+    // Global reader for consistent stream management
+    var globalReader ;
+
+    async function connectSerial() {
+        
+        try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: parseInt(document.getElementById("baud").value) });
+            
+            let settings = {};
+            if (localStorage.dtrOn == "true") settings.dataTerminalReady = true;
+            if (localStorage.rtsOn == "true") settings.requestToSend = true;
+            if (Object.keys(settings).length > 0) await port.setSignals(settings);
+  
+            textEncoder = new TextEncoderStream();
+            writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+            writer = textEncoder.writable.getWriter();
+
+            // Create a global reader for managing the stream
+            if (!globalReader) {
+                globalReader = port.readable.getReader();
+            }
+
+            // Fetch and display sensor capacity after connecting
+            const capacityValue = await fetchSensorCapacity();
+            document.getElementById("sensorCapacity").value = capacityValue;
+
+            // Fetch and display sensor ID after connecting
+            const sensorID = await fetchSensorID();
+            document.getElementById("sensorID").value = sensorID;
+
+            // Fetch and display sensor units after connecting
+            const sensorUnits = await fetchSensorUnits();
+            document.getElementById("sensorUnits").value = sensorUnits;
+            if (sensorUnits) {
+                _currentUnit = sensorUnits.trim().toLowerCase();
+                const unitsMapping = {
+                'lb': 'lb',
+                'kg': 'kg',
+                'g': 'g',
+                'n': 'N'
+            };
+            currentUnit = unitsMapping[_currentUnit];
+            document.getElementById("unitSelect").value = currentUnit;
+            }
+
+        document.getElementById("connect").style.display = "none";
+        document.getElementById("disconnect").style.display = "block";
+        document.getElementById("stop").style.display = "none";
+        document.getElementById("read").style.display = "block";
+        document.getElementById("tare").style.display = "block";
+        } catch (e){
+        document.getElementById("connect").style.display = "block";
+        document.getElementById("disconnect").style.display = "none";
+        document.getElementById("stop").style.display = "none";
+        document.getElementById("read").style.display = "none";
+        document.getElementById("tare").style.display = "none";
+            alert("Serial Connection Failed: " + e);
+        }
+    }
+
+    async function disconnectSerial() {
+        if (port) {
+            try {
+                document.getElementById("disconnect").textContent ='disconnecting please wait...';
+                document.getElementById("disconnect").disabled = true;
+                if (writer) {
+                    await writer.close();
+                    await writableStreamClosed;
+                }
+                if (globalReader) {
+                    await globalReader.cancel();
+                    globalReader.releaseLock();
+                    globalReader = null;
+                }
+                await port.close();
+                alert("Serial Connection Closed Successfully");
+                window.location.reload();
+            } catch (e) {
+                alert("Failed to close serial connection: " + e);
+            } finally {
+                port = null;
+                writer = null;
+                textEncoder = null;
+                document.getElementById("disconnect").textContent ='Disconnect';
+                document.getElementById("disconnect").disabled = false;
+                document.getElementById("connect").style.display = "block";
+                document.getElementById("disconnect").style.display = "none";
+                document.getElementById("stop").style.display = "none";
+                document.getElementById("read").style.display = "none";
+                document.getElementById("tare").style.display = "none";
+                clearInterval(readingInterval);  // Stop live reading updates
+                document.getElementById("sensorID").value = "";
+                document.getElementById("sensorCapacity").value = "";
+                document.getElementById("sensorUnits").value = "";
+            }
+        } else {
+            alert("No serial connection to close");
+        }
+    }
+
+    // async function sendCharacterNumber() {
+    //     document.getElementById("lineToSend").value = String.fromCharCode(document.getElementById("lineToSend").value);
+    // }
+
+    // const serialResultsDiv = document.getElementById("serialResults"); 
+    // async function appendToTerminal(newStuff) {
+    //     serialResultsDiv.innerHTML += newStuff;
+    //     if (serialResultsDiv.innerHTML.length > 3000) serialResultsDiv.innerHTML = serialResultsDiv.innerHTML.slice(serialResultsDiv.innerHTML.length - 3000);
+    //     serialResultsDiv.scrollTop = serialResultsDiv.scrollHeight;
+    // }
+
+//     function scrollHistory(direction) {
+//         historyIndex = Math.max(Math.min(historyIndex + direction, lineHistory.length - 1), -1);
+//         if (historyIndex >= 0) {
+//             document.getElementById("lineToSend").value = lineHistory[historyIndex];
+//         } else {
+//             document.getElementById("lineToSend").value = "";
+//         }
+//     }
+// window.onload = function() {
+//     document.getElementById("lineToSend").addEventListener("keyup", async function (event) {
+//         if (event.keyCode === 13) {
+//             sendSerialLine();
+//         } else if (event.keyCode === 38) {
+//             scrollHistory(1);
+//         } else if (event.keyCode === 40) {
+//             scrollHistory(-1);
+//         }
+//     });
+//     };
+    
+
+    //document.getElementById("baud").value = (localStorage.baud == undefined ? 9600 : localStorage.baud);
+   // document.getElementById("addLine").checked = (localStorage.addLine == "false" ? false : true);
+    //document.getElementById("carriageReturn").checked = (localStorage.carriageReturn == "false" ? false : true);
+    //document.getElementById("echoOn").checked = (localStorage.echoOn == "false" ? false : true);
+
+    // async function populateConnections() {
+    //     const ports = await navigator.serial.getPorts();
+    //     const connectionsSelect = document.getElementById('connections');
+    //     connectionsSelect.innerHTML = ''; 
+
+    //     ports.forEach((port, index)=> {
+    //         const option = document.createElement('option');
+    //         option.value = `port${index}`;
+    //         option.textContent = `Port ${index + 1}`;
+    //         connectionsSelect.appendChild(option);
+    //     });
+    // }
+
+    async function fetchSensorCapacity() {
+        const command = 'slc\r';  // Command to request sensor capacity
+        try {
+            let result = '';
+            console.log('Sending capacity request command:', command);
+
+            // Send the capacity command to the sensor
+            await writer.write(command);
+            console.log('Command sent successfully.');
+
+            const decoder = new TextDecoder();
+            console.log('Reading capacity from sensor...');
+            
+            while (true) {
+                const { value, done } = await globalReader.read();
+                if (done) {
+                    console.log('No more data to read.');
+                    break;
+                }
+
+                // Append the received value to the result
+                result += decoder.decode(value);
+                console.log('Received chunk:', value);
+                console.log('Decoded chunk:', decoder.decode(value));
+                
+                // Break early if we expect the capacity to end with a specific character
+                if (result.includes('\n')) {
+                    console.log('End of data detected.');
+                    break;
+                }
+            }
+
+            console.log('Final received capacity:', result);
+            return result.trim();
+        } catch (error) {
+            console.error('Error reading capacity:', error);
+            return "Error retrieving capacity";
+        }
+    }
+
+    async function fetchSensorID() {
+        const command = 'ss1\r';  // Command to request sensor ID
+        try {
+            console.log('Sending ID request command:', command);
+
+            // Send the ID command to the sensor
+            await writer.write(command);
+            console.log('Command sent successfully.');
+
+            const decoder = new TextDecoder();
+            let result = '';
+            console.log('Reading ID from sensor...');
+            
+            while (true) {
+                const { value, done } = await globalReader.read();
+                if (done) {
+                    console.log('No more data to read.');
+                    break;
+                }
+
+                // Append the received value to the result
+                result += decoder.decode(value);
+                // console.log('Received chunk:', value);
+                // console.log('Decoded chunk:', decoder.decode(value));
+                
+                // Break early if we expect the ID to end with a specific character
+                if (result.includes('\n')) {
+                    console.log('End of data detected.');
+                    break;
+                }
+            }
+
+            // console.log('Final received ID:', result);
+            return result.trim();
+        } catch (error) {
+            console.error('Error reading ID:', error);
+            return "Error retrieving ID";
+        }
+    }
+
+    async function tareCmd() {
+        const command = 'ct0\r';
+        try {
+            await writer.write(command);
+            console.log('Command:%s sent successfully.',command);
+            const decoder = new TextDecoder();
+            let result = '';
+            while (true) {
+                const { value, done } = await globalReader.read();
+                if (done) {
+                    console.log('No more data to read for Tare.');
+                    break;
+                }
+
+                // Append the received value to the result
+                result += decoder.decode(value);
+                console.log('Tare Received chunk:', value);
+                console.log('Tare Decoded chunk:', decoder.decode(value));
+                
+                // Break early if we expect the units to end with a specific character
+                if (result.includes('\n')) {
+                    console.log('End of data detected.');
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error('error in tare command:%O', error)
+        }
+    }
+    async function fetchSensorUnits() {
+        const command = 'unit\r';  // Command to request sensor units, assuming 'unit' is the command for units
+        try {
+            console.log('Sending units request command:', command);
+
+            // Send the units command to the sensor
+            await writer.write(command);
+            console.log('Command sent successfully.');
+
+            const decoder = new TextDecoder();
+            let result = '';
+            console.log('Reading units from sensor...');
+            
+            while (true) {
+                const { value, done } = await globalReader.read();
+                if (done) {
+                    console.log('No more data to read.');
+                    break;
+                }
+
+                // Append the received value to the result
+                result += decoder.decode(value);
+                console.log('Received chunk:', value);
+                console.log('Decoded chunk:', decoder.decode(value));
+                
+                // Break early if we expect the units to end with a specific character
+                if (result.includes('\n')) {
+                    console.log('End of data detected.');
+                    break;
+                }
+            }
+
+            console.log('Final received units:', result);
+            return result.trim();
+        } catch (error) {
+            console.error('Error reading units:', error);
+            return "Error retrieving units";
+        }
+    }
+
+    async function fetchSensorData() {
+        const command = 'o0w1\r';  // Command to request sensor data
+        try {
+            console.log('Sending data request command:', command);
+
+            // Send the data command to the sensor
+            await writer.write(command);
+            console.log('Command sent successfully.');
+
+            const decoder = new TextDecoder();
+            let result = '';
+            console.log('Reading data from sensor...');
+            
+            while (true) {
+                const { value, done } = await globalReader.read();
+                if (done) {
+                    console.log('No more data to read.');
+                    break;
+                }
+
+                // Append the received value to the result
+                result += decoder.decode(value);
+                console.log('Received chunk:', value);
+                console.log('Decoded chunk:', decoder.decode(value));
+                
+                // Break early if we expect the data to end with a specific character
+                if (result.includes('\n')) {
+                    console.log('End of data detected.');
+                    break;
+                }
+            }
+
+            console.log('Final received data:', result);
+            return parseFloat(result.trim()).toFixed(2);
+        } catch (error) {
+            console.error('Error reading data:', error);
+            return "Error retrieving data";
+        }
+    }
+
+    async function showCapacityNew() {
+        const capacityValue = await fetchSensorCapacity();
+        document.getElementById("outputCapacity").textContent = `Capacity: ${capacityValue}`;
+    }
+function stopReading() {
+    isStart = false;
+        if (readingInterval) {
+            clearInterval(readingInterval);  // Clear any existing interval
+        }
+        // disable the stop button and enable read and tare buttons
+        document.getElementById("stop").style.display = "none";
+        document.getElementById("read").style.display = "block";
+        // document.getElementById("tare").style.display = "block";
+    }
+    let isStart = false;
+    let avgCount = 1;
+    async function showReading() {
+        if (readingInterval) {
+            clearInterval(readingInterval);  // Clear any existing interval
+        }
+        document.getElementById("stop").style.display = "block";
+        document.getElementById("read").style.display = "none";
+        // document.getElementById("averageReading").style.display = "none";
+        isStart = true;
+        let sum =0, avg=0,isPush=false, counter=0;
+        console.log('avg reading count:',avgCount);
+        readingInterval = setInterval(async () => {
+            const sensorData = await fetchSensorData();
+            const convertedData = convertUnits(sensorData/1000);
+            if(counter<avgCount)
+            {
+                isPush = false;
+                sum+=parseFloat(convertedData);
+                counter++;
+            }
+            else
+            {
+                avg = sum/avgCount;
+                sum=0;
+                counter=0;
+                isPush=true;
+            }
+            const _convertedData = avg.toFixed(currentResolution);
+            const now = new Date().toLocaleTimeString();
+            if(isPush){
+                document.getElementById("outputReading").textContent = `${_convertedData} ${_currentUnit}`;
+
+            // Update chart data arrays
+            chartData.push(_convertedData);
+            chartLabels.push(now);
+
+            // Add the data to the table
+            addToTable(now, `${_convertedData}`);
+
+            // Update the chart based on the current mode
+            if (chartMode === 'cumulative') {
+                showCumulativeGraph();
+            } else if (chartMode === 'recent') {
+                showRecentGraph();
+            }
+
+            // Update peak and low values
+        if (convertedData > peakValue) {
+            peakValue = _convertedData;
+            document.getElementById("peak-value").textContent = `${peakValue}`;
+        }
+        if (convertedData < lowValue) {
+            lowValue = _convertedData;
+            document.getElementById("low-value").textContent = `${lowValue}`;
+        }
+            }
+            
+        }, 100);  // Update reading every 1000 ms (1 second)
+    }
+
+    async function tare() {
+        stopReading()
+        if(chartData.length) {
+        clearTable();
+        chartLabels = []
+        chartData = []
+        showCumulativeGraph()
+        }        
+        // Reset current reading to zero
+        document.getElementById("outputReading").textContent = `0.00 ${_currentUnit}`;
+
+        // Reset peak and low values to N/A
+        peakValue = -Infinity;
+        lowValue = Infinity;
+        document.getElementById("peak-value").textContent = `N/A`;
+        document.getElementById("low-value").textContent = `N/A`;
+        await tareCmd();
+    }
+var _currentUnit = currentUnit;
+    function updateUnits() {
+    if(document.getElementById("unitSelect").value!=_currentUnit)
+    {
+    if(confirm("Unit changes in mid of reading, may clear all prev readings. do you want to clear all prev data?"))
+    {
+        stopReading();
+    }
+    }
+        _currentUnit = document.getElementById("unitSelect").value;
+  removeTableHead();
+        createTableHead();
+  const tableBody = document.querySelector('#data-table tbody'); // Select the table body
+  const table = tableBody.parentElement; // Get the table element
+  table.insertBefore(createTableHead(), tableBody); // Insert the table head before the table body
+        console.log('Units changed to:', currentUnit);
+    }
+    function averageReading() {
+        /*
+        if(isStart)
+        {
+            alert("Average changes in mid of reading is not allowed. Please stop reading, change average and start again");
+            
+            return false;
+        } 
+            */
+            avgCount = parseInt(document.getElementById("averageReading").value);
+    }
+    function updateResolution() {
+        if(isStart)
+        {
+            alert("Resolution changes in mid of reading is not allowed. Please stop reading, change resolution and start again");
+            document.getElementById("resolutionSelect").value = currentResolution;
+            return false;
+        }
+        currentResolution = parseInt(document.getElementById("resolutionSelect").value);
+        console.log('Resolution changed to:', currentResolution);
+        return true;
+    }
+
+    function convertUnits(value) {
+        const _conversionFactors = conversionFactors[currentUnit];
+        console.log('selected unit conversion units:',_conversionFactors);
+        return (value * _conversionFactors[_currentUnit]).toFixed(currentResolution);
+    }
+
+function clearTable() {
+  const tableBody = document.querySelector('#data-table tbody'); // Select the table body
+  // Using a while loop (more explicit)
+  while (tableBody.firstChild) {
+    tableBody.removeChild(tableBody.firstChild); 
+  }
+}
+    // Function to add a row to the table
+    function addToTable(time, reading) {
+        const tableBody = document.querySelector("#data-table tbody");
+        const newRow = document.createElement("tr");
+
+        const timeCell = document.createElement("td");
+        timeCell.textContent = time;
+        timeCell.style.backgroundColor = "#000000"; // Set background color to black
+        timeCell.style.color = "#ffffff"; // Set text color to white
+        newRow.appendChild(timeCell);
+
+        const readingCell = document.createElement("td");
+        readingCell.textContent = reading;
+        readingCell.style.backgroundColor = "#000000"; // Set background color to black
+        readingCell.style.color = "#ffffff"; // Set text color to white
+        newRow.appendChild(readingCell);
+
+
+    const peakCell = document.createElement("td");
+    peakCell.textContent = `${peakValue}`; // Display the current peak value
+    peakCell.style.backgroundColor = "#000000"; // Set background color to black
+    peakCell.style.color = "#ffffff"; // Set text color to white
+    newRow.appendChild(peakCell);
+
+    const lowCell = document.createElement("td");
+    lowCell.textContent = `${lowValue}`; // Display the current low value
+    lowCell.style.backgroundColor = "#000000"; // Set background color to black
+    lowCell.style.color = "#ffffff"; // Set text color to white
+    newRow.appendChild(lowCell);
+
+        tableBody.prepend(newRow);
+    }
+
+    function saveData() {
+    // Gather necessary information
+    const sensorID = document.getElementById("sensorID").value;
+    const sensorCapacity = document.getElementById("sensorCapacity").value;
+    const sensorUnits = document.getElementById("sensorUnits").value;
+    const testDate = new Date().toLocaleDateString();  // Format the date as needed
+
+    // CSV file content
+    let csvContent = `Data Log\n`;
+    csvContent += `ID: ${sensorID}\n`;
+    csvContent += `Capacity: ${sensorCapacity}\n`;
+    csvContent += `Units: ${sensorUnits}\n`;
+    csvContent += `Test Date: ${testDate}\n\n`;
+
+    // Add table headers
+    csvContent += `Time,Reading,Peak,Low\n`;
+
+    // Loop through the table and add the data to the CSV
+    const tableRows = document.querySelectorAll("#data-table tbody tr");
+    tableRows.forEach(row => {
+        const cells = row.querySelectorAll("td");
+        const rowData = Array.from(cells).map(cell => cell.textContent).join(",");
+        csvContent += `${rowData}\n`;
+    });
+
+    // Create a Blob with the CSV content
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+
+    // Prompt the user to name the file
+    const fileName = prompt("Enter a name for the CSV file:", "data_log");
+
+    // Create a link to download the file
+    if (fileName) {
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${fileName}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+</script>
+
+<script>
+    var chart; // Global chart instance
+    var chartData = []; // Array to hold the data points
+    var chartLabels = []; // Array to hold the labels (timestamps)
+    var chartMode = 'cumulative'; // Track the current chart mode
+
+    // Initialize Chart.js chart
+    function initializeChart() {
+        var ctx = document.getElementById('dataChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line', // Line chart
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: 'Sensor Reading',
+                    backgroundColor: 'rgba(0, 0, 0, 0)', // Transparent background for the line
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    data: chartData,
+                    fill: false,
+                }]
+            },
+            options: {
+                scales: {
+                    xAxes: [{
+                        gridLines: {
+                            color: 'rgba(255, 255, 255, 0.1)' // Lighter grid lines for better visibility
+                        },
+                        type: 'time',
+                        time: {
+                            unit: 'second',
+                            displayFormats: {
+                                second: 'h:mm:ss a'
+                            }
+                        }
+                    }],
+                    yAxes: [{
+                        gridLines: {
+                            color: 'rgba(255, 255, 255, 0.1)' // Lighter grid lines for better visibility
+                        }
+                    }]
+                },
+                elements: {
+                    line: {
+                        tension: 0 // Disable bezier curves for better performance
+                    }
+                },
+                plugins: {
+                    decimation: {
+                        enabled: true,
+                        algorithm: 'min-max', // Choose the decimation algorithm
+                        samples: 5000 // Number of samples to keep
+                    }
+                }
+            }
+        });
+    }
+
+    // Function to show the cumulative graph (default mode)
+    function showCumulativeGraph() {
+        chartMode = 'cumulative';
+        chart.data.labels = chartLabels;
+        chart.data.datasets[0].data = chartData;
+        chart.update();
+    }
+
+    // Function to show only the most recent 5 values
+    function showRecentGraph() {
+        chartMode = 'recent';
+        var recentLabels = chartLabels.slice(-10);  // Get the last 5 labels
+        var recentData = chartData.slice(-10);  // Get the last 5 data points
+        chart.data.labels = recentLabels;
+        chart.data.datasets[0].data = recentData;
+        chart.update();
+    }
+
+    // Call initializeChart() on document ready
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeChart();
+        createTableHead();
+  const tableBody = document.querySelector('#data-table tbody'); // Select the table body
+  const table = tableBody.parentElement; // Get the table element
+  table.insertBefore(createTableHead(), tableBody); // Insert the table head before the table body
+  document.getElementById("graphtype").textContent = chartMode === 'cumulative'? 'Cumulative': 'Strip Chart';
+    });
+    function removeTableHead() {
+    const table = document.querySelector('#data-table');
+    const tableHead = table.querySelector('thead');
+    if (tableHead) {
+      table.removeChild(tableHead);
+    }
+  }
+    function createTableHead() {
+    const tableHead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    const headers = ["Time", "Reading"+` (${_currentUnit})`, "Peak"+` (${_currentUnit})`, "Low"+` (${_currentUnit})`];
+    headers.forEach(headerText => {
+      const headerCell = document.createElement("th");
+      headerCell.textContent = headerText; // Set the header text
+      headerCell.style.fontWeight = "normal"; // Set normal font weight
+      headerRow.appendChild(headerCell);
+    });
+
+    tableHead.appendChild(headerRow);
+    return tableHead;
+  }
+</script>
+<div id="footer" style="background-color: #B2E4FF; text-align: center; padding: 5px; margin-top: 10px;">
+Loadstar Sensors Copyright 2025 All Rights Reserved.
+</div>
+</body>
+</html>
