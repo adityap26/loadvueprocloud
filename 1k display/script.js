@@ -212,15 +212,17 @@ function handleSerialData(data) {
     if (cleanData.trim()) {
         logMessage('Received: ' + cleanData.trim(), 'response');
         
-        // Count individual hex values for speed tracking
+        // Count individual hex values for speed tracking (filter out single digits)
         const hexMatches = cleanData.match(/-?[0-9A-Fa-f]+/g);
         if (hexMatches) {
-            readingCount += hexMatches.length;
+            // Only count hex values that are 3 or more characters (likely actual sensor readings)
+            const validReadings = hexMatches.filter(hex => hex.replace('-', '').length >= 3);
+            readingCount += validReadings.length;
         }
         
         // Try to parse the sensor reading for hex display
         const reading = parseSensorReading(cleanData);
-        if (reading !== null) {
+        if (reading !== null && reading !== '---') {
             sensorDisplay.textContent = reading;
         }
         
@@ -240,10 +242,30 @@ function parseSensorReading(data) {
     // Remove whitespace and newlines
     const cleanData = data.trim();
     
-    // Look for numeric values in the response
-    // This pattern looks for numbers with optional decimal points
-    const numberMatch = cleanData.match(/-?\d+\.?\d*/);
+    // First, try to find hex values and convert the most recent one
+    const hexMatches = cleanData.match(/-?[0-9A-Fa-f]+/g);
+    if (hexMatches && hexMatches.length > 0) {
+        // Find the last valid hex value (3+ characters)
+        for (let i = hexMatches.length - 1; i >= 0; i--) {
+            const hex = hexMatches[i];
+            const cleanHex = hex.replace('-', '');
+            
+            if (cleanHex.length >= 3) {
+                // Convert hex to decimal
+                let decimal = parseInt(cleanHex, 16);
+                
+                // Handle negative values (16-bit signed integer)
+                if (hex.startsWith('-') || decimal > 32767) {
+                    decimal = decimal - 65536; // Convert to signed 16-bit
+                }
+                
+                return decimal.toFixed(2); // Display with 2 decimal places
+            }
+        }
+    }
     
+    // Fallback: Look for numeric values in the response
+    const numberMatch = cleanData.match(/-?\d+\.?\d*/);
     if (numberMatch) {
         const value = parseFloat(numberMatch[0]);
         if (!isNaN(value)) {
@@ -251,7 +273,7 @@ function parseSensorReading(data) {
         }
     }
     
-    // If no numeric value found, return the raw data (truncated if too long)
+    // If no valid value found, return the raw data (truncated if too long)
     if (cleanData.length > 20) {
         return cleanData.substring(0, 20) + '...';
     }
@@ -324,6 +346,12 @@ function convertRawDataToAscii(data) {
             for (let hex of hexMatches) {
                 // Remove the minus sign if present
                 const cleanHex = hex.replace('-', '');
+                
+                // Skip single-digit hex values (likely control characters)
+                if (cleanHex.length < 3) {
+                    console.log(`Skipping short hex value: ${hex}`);
+                    continue;
+                }
                 
                 // Convert hex to decimal
                 let decimal = parseInt(cleanHex, 16);
