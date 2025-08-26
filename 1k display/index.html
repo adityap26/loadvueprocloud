@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sensor Display - Command H</title>
+    <title>Loadstar Sensor Display - Load Conversion</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -37,6 +37,15 @@
             background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }
+        .weight-status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
         .displays-container {
             display: flex;
@@ -122,6 +131,27 @@
         .stop-btn:hover {
             background-color: #e0a800;
         }
+        .tare-btn {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .tare-btn:hover {
+            background-color: #5a32a3;
+        }
+        .swc-btn {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .swc-btn:hover {
+            background-color: #e8690b;
+        }
+        .manual-weight-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .manual-weight-btn:hover {
+            background-color: #5a6268;
+        }
         .continuous-btn {
             background-color: #17a2b8;
             color: white;
@@ -172,17 +202,66 @@
         .error {
             color: #dc3545;
         }
+        .graph-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .graph-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        .graph-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .clear-graph-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .clear-graph-btn:hover {
+            background-color: #5a6268;
+        }
+        .graph-info {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        #loadGraph {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            width: 100%;
+            max-width: 800px;
+            height: 300px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>DI-1000-UHS1k Display</h1>
-            <p>Connect to sensor and send command "H" to display readings</p>
+            <h1>DI-1000-UHS1k Load Display</h1>
+            <p>Connect to sensor, get Weight/Count with SWC command, then send "H" to display load values</p>
         </div>
 
         <div id="connectionStatus" class="connection-status disconnected">
             Disconnected
+        </div>
+        <div id="weightPerCountStatus" class="weight-status" style="display: none;">
+            Weight/Count: <span id="weightPerCountValue">Not set</span>
         </div>
 
         <div class="controls">
@@ -190,6 +269,8 @@
             <button id="disconnectBtn" class="disconnect-btn" onclick="disconnectSerial()" style="display: none;">Disconnect</button>
             <button id="sendBtn" class="send-btn" onclick="sendCommandH()" style="display: none;">Send Command H</button>
             <button id="stopBtn" class="stop-btn" onclick="sendStopCommand()" style="display: none;">Stop</button>
+            <button id="tareBtn" class="tare-btn" onclick="sendTareCommand()" style="display: none;">Tare</button>
+            <button id="swcBtn" class="swc-btn" onclick="sendSWCCommand()" style="display: none;">Get Weight/Count</button>
             <select id="baudRate" class="baud-select">
                 <option value="9600">9600</option>
                 <option value="230400" selected>230400</option>
@@ -197,6 +278,8 @@
             <div id="speedCounter" class="speed-counter">
                 Speed: <span id="readingsPerSecond">0</span> Hz
             </div>
+            <input type="number" id="manualWeightPerCount" placeholder="Manual Weight/Count" step="0.001" style="display: none;">
+            <button id="setManualWeightBtn" class="manual-weight-btn" onclick="setManualWeightPerCount()" style="display: none;">Set Manual</button>
         </div>
 
         <div class="displays-container">
@@ -207,11 +290,33 @@
                 </div>
             </div>
             <div class="display-section">
-                <div class="display-label">Sensor Values</div>
+                <div class="display-label">Load Values (calibrated units)</div>
                 <div id="asciiDisplay" class="ascii-display">
                     ---
                 </div>
             </div>
+        </div>
+
+        <div class="graph-container">
+            <div class="graph-header">
+                <h3>Real-Time Load Graph</h3>
+                <div class="graph-controls">
+                    <button id="clearGraphBtn" class="clear-graph-btn" onclick="clearGraph()">Clear Graph</button>
+                    <span>Max Points: <span id="maxPoints">100</span></span>
+                </div>
+            </div>
+            <canvas id="loadGraph" width="800" height="300"></canvas>
+        </div>
+
+        <div class="graph-container">
+            <div class="graph-header">
+                <h3>Cumulative Data Chart</h3>
+                <div class="graph-controls">
+                    <button id="clearCumulativeBtn" class="clear-graph-btn" onclick="clearCumulativeGraph()">Clear Chart</button>
+                    <span>Data Points: <span id="cumulativePoints">0</span></span>
+                </div>
+            </div>
+            <canvas id="cumulativeGraph" width="800" height="300"></canvas>
         </div>
 
         <div class="log">
