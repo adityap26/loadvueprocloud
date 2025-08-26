@@ -328,42 +328,24 @@ function parseSWCResponse(data) {
     try {
         logMessage('Attempting to parse SWC response: ' + data, 'response');
         
-        // Look for various numeric formats in the response
-        const patterns = [
-            /-?\d+\.?\d*[eE][+-]?\d+/g,        // Scientific notation (e.g., 2.56E-4, 1.23e-3)
-            /-?\d+\.\d+[eE][+-]?\d+/g,         // Decimal with scientific notation
-            /-?\d+[eE][+-]?\d+/g,              // Scientific notation without decimal
-            /weight[:\s]*([0-9.e+-]+)/i,       // "Weight: 0.001" format
-            /count[:\s]*([0-9.e+-]+)/i,        // "Count: 1000" format
-            /ratio[:\s]*([0-9.e+-]+)/i,        // "Ratio: 0.001" format
-            /-?\d+\.?\d*/g                     // Regular decimal numbers (fallback)
-        ];
+        // First, try to find any numeric value in the response (including scientific notation)
+        const numericMatch = data.match(/-?\d+\.?\d*[eE]?[+-]?\d*/);
         
-        for (let pattern of patterns) {
-            const matches = data.match(pattern);
-            if (matches && matches.length > 0) {
-                for (let match of matches) {
-                    logMessage(`Found match: "${match}" with pattern: ${pattern}`, 'response');
-                    
-                    // Extract the numeric part if it's in a labeled format
-                    const numericMatch = match.match(/([0-9.e+-]+)/);
-                    const valueToParse = numericMatch ? numericMatch[1] : match;
-                    const value = parseFloat(valueToParse);
-                    
-                    logMessage(`Parsed value: ${value} from "${valueToParse}"`, 'response');
-                    
-                    if (!isNaN(value) && value !== 0) {
-                        // Weight/Count is usually a small positive number
-                        if (value > 0 && value < 10) {
-                            weightPerCount = value;
-                            isWeightPerCountSet = true;
-                            waitingForSWCResponse = false; // Clear waiting flag
-                            logMessage(`Weight per Count set to: ${weightPerCount} (from pattern: ${pattern})`, 'response');
-                            updateLoadDisplay();
-                            return;
-                        }
-                    }
-                }
+        if (numericMatch) {
+            const rawValue = numericMatch[0];
+            const value = parseFloat(rawValue);
+            
+            logMessage(`Found raw value: "${rawValue}"`, 'response');
+            logMessage(`Parsed value: ${value}`, 'response');
+            
+            if (!isNaN(value) && value !== 0) {
+                // Accept any non-zero value from the sensor
+                weightPerCount = value;
+                isWeightPerCountSet = true;
+                waitingForSWCResponse = false; // Clear waiting flag
+                logMessage(`Weight per Count set to: ${weightPerCount} (exact sensor value)`, 'response');
+                updateLoadDisplay();
+                return;
             }
         }
         
