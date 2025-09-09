@@ -10,11 +10,18 @@ let lowValue = 0.00;  // Initialize low value
 let currentUnit = "lb";  // Default unit
 let currentResolution = 2;  // Default resolution (x.xx)
 const conversionFactors = {
-    lb: { lb: 1, kg: 0.453592, g: 453.592, N: 4.44822 },
-    kg: { lb: 2.20462, kg: 1, g: 1000, N: 9.81 },
-    g: { lb: 453.59, kg: 0.001, g: 1, N: 0.0098 },
-    N: { lb: 0.22480, kg: 0.10197, g: 101.972, N: 1 }
+    lb: { lb: 1, kg: 0.453592, g: 453.592, N: 4.44822, "N-m": 1.35582, "LBF-FT": 1, mm: 25.4, in: 1 },
+    kg: { lb: 2.20462, kg: 1, g: 1000, N: 9.81, "N-m": 9.81, "LBF-FT": 7.233, mm: 1000, in: 39.3701 },
+    g: { lb: 0.00220462, kg: 0.001, g: 1, N: 0.00981, "N-m": 0.00981, "LBF-FT": 0.007233, mm: 1, in: 0.0393701 },
+    N: { lb: 0.22480, kg: 0.10197, g: 101.972, N: 1, "N-m": 1, "LBF-FT": 0.737562, mm: 1000, in: 39.3701 },
+    "N-m": { lb: 0.737562, kg: 0.10197, g: 101.972, N: 1, "N-m": 1, "LBF-FT": 0.737562, mm: 1000, in: 39.3701 },
+    "LBF-FT": { lb: 1, kg: 0.138255, g: 138.255, N: 1.35582, "N-m": 1.35582, "LBF-FT": 1, mm: 1355.82, in: 53.3787 },
+    mm: { lb: 0.0393701, kg: 0.001, g: 1, N: 0.001, "N-m": 0.001, "LBF-FT": 0.000737562, mm: 1, in: 0.0393701 },
+    in: { lb: 1, kg: 0.0254, g: 25.4, N: 0.0254, "N-m": 0.0254, "LBF-FT": 0.018733, mm: 25.4, in: 1 }
 };  // Conversion factors
+
+// Displacement sensor scaling factor - raw values are in micrometers, need to divide by 1000 for mm
+const displacementScalingFactor = 0.001; // 1/1000 to convert μm to mm
 
 // Global reader for consistent stream management
 var globalReader;
@@ -62,9 +69,23 @@ async function connectSerial() {
             'lb': 'lb',
             'kg': 'kg',
             'g': 'g',
-            'n': 'N'
+            'n': 'N',
+            'n-m': 'N-m',
+            'nm': 'N-m',
+            'newton-meter': 'N-m',
+            'newton meter': 'N-m',
+            'lbf-ft': 'LBF-FT',
+            'lbft': 'LBF-FT',
+            'pound-foot': 'LBF-FT',
+            'pound foot': 'LBF-FT',
+            'mm': 'mm',
+            'millimeter': 'mm',
+            'millimeters': 'mm',
+            'in': 'in',
+            'inch': 'in',
+            'inches': 'in'
         };
-        currentUnit = unitsMapping[_currentUnit];
+        currentUnit = unitsMapping[_currentUnit] || _currentUnit;
         document.getElementById("unitSelect").value = currentUnit;
         }
 
@@ -273,7 +294,13 @@ async function fetchSensorUnits() {
     }
 }
 
-async function fetchSensorData() {
+// Enhanced sensor data fetching with device unit detection
+async function fetchDeviceWeightAndUnit() {
+    // Check if this is a UHS-1k sensor and use W command
+    if (isUHS1kSensor()) {
+        return await fetchUHS1kWeightAndUnit();
+    }
+    
     const command = 'o0w1\r';  // Command to request sensor data
     try {
         console.log('Sending data request command:', command);
@@ -306,11 +333,92 @@ async function fetchSensorData() {
         }
 
         console.log('Final received data:', result);
-        return parseFloat(result.trim()).toFixed(2);
+        let weight = parseFloat(result.trim());
+        const deviceUnit = document.getElementById("sensorUnits").value || currentUnit;
+        
+        // Apply displacement scaling factor if the sensor unit is mm or in
+        const canonicalDeviceUnit = canonicalUnit(deviceUnit);
+        if (canonicalDeviceUnit === 'mm' || canonicalDeviceUnit === 'in') {
+            weight = weight * displacementScalingFactor;
+        }
+        
+        return { weight, deviceUnit };
     } catch (error) {
         console.error('Error reading data:', error);
-        return "Error retrieving data";
+        return { weight: NaN, deviceUnit: currentUnit };
     }
+}
+
+// UHS-1k specific weight fetching using W command
+async function fetchUHS1kWeightAndUnit() {
+    const command = 'W\r';  // W command for UHS-1k sensor
+    try {
+        console.log('Sending UHS-1k W command:', command);
+
+        // Send the W command to the sensor
+        await writer.write(command);
+        console.log('W command sent successfully.');
+
+        const decoder = new TextDecoder();
+        let result = '';
+        console.log('Reading UHS-1k data from sensor...');
+        
+        // Add timeout protection for UHS-1k readings
+        const startTime = Date.now();
+        const timeout = 1000; // 1 second timeout
+        
+        while (true) {
+            // Check for timeout
+            if (Date.now() - startTime > timeout) {
+                console.warn('UHS-1k reading timeout after', timeout, 'ms');
+                break;
+            }
+            
+            const { value, done } = await globalReader.read();
+            if (done) {
+                console.log('No more data to read.');
+                break;
+            }
+
+            // Append the received value to the result
+            result += decoder.decode(value);
+            console.log('UHS-1k received chunk:', value);
+            console.log('UHS-1k decoded chunk:', decoder.decode(value));
+            
+            // Break early if we expect the data to end with a specific character
+            if (result.includes('\n')) {
+                console.log('End of UHS-1k data detected.');
+                break;
+            }
+        }
+
+        console.log('Final UHS-1k received data:', result);
+        let weight = parseFloat(result.trim());
+        const deviceUnit = document.getElementById("sensorUnits").value || currentUnit;
+        
+        // Apply displacement scaling factor if the sensor unit is mm or in
+        const canonicalDeviceUnit = canonicalUnit(deviceUnit);
+        if (canonicalDeviceUnit === 'mm' || canonicalDeviceUnit === 'in') {
+            weight = weight * displacementScalingFactor;
+        }
+        
+        // Validate the weight reading
+        if (isNaN(weight)) {
+            console.warn('UHS-1k returned invalid weight:', result);
+            return { weight: NaN, deviceUnit };
+        }
+        
+        return { weight, deviceUnit };
+    } catch (error) {
+        console.error('Error reading UHS-1k data:', error);
+        return { weight: NaN, deviceUnit: currentUnit };
+    }
+}
+
+// Legacy function for backward compatibility
+async function fetchSensorData() {
+    const { weight } = await fetchDeviceWeightAndUnit();
+    return weight.toFixed(2);
 }
 
 async function showCapacityNew() {
@@ -329,103 +437,241 @@ function stopReading() {
         // document.getElementById("tare").style.display = "block";
     }
 
+// Reading and Display Module - Enhanced from UHS-1k
 let isStart = false;
 let avgCount = 1;
+var _currentUnit = currentUnit;
+let convertedData = 0;
+let displayValue = '';
+
+// Continuous streaming helper state
+let weightStreamAbortController = null; // Abort controller to break the reader loop on stop
+let tareOffset = 0; // Software tare offset
+
+// Helper: canonicalize unit strings coming from sensor
+function canonicalUnit(u){
+    if(!u) return u;
+    const s = u.trim().toLowerCase();
+    if(s.includes('lb')) return 'lb';
+    if(s.includes('kg')) return 'kg';
+    if(s === 'g' || s.includes('gram')) return 'g';
+    if(s.startsWith('n') && !s.includes('m')) return 'N'; // Newtons (but not N-m)
+    if(s.includes('n-m') || s.includes('nm') || s.includes('newton') || s.includes('newton-meter')) return 'N-m';
+    if(s.includes('lbf-ft') || s.includes('lbft') || s.includes('pound') || s.includes('pound-foot')) return 'LBF-FT';
+    if(s === 'mm' || s.includes('millimeter') || s.includes('millimeters')) return 'mm';
+    if(s === 'in' || s.includes('inch') || s.includes('inches')) return 'in';
+    if(s.includes('mlb')) return 'mlb'; // Millipounds
+    return s; // fallback
+}
+
+// Helper: check if current sensor is UHS-1k
+function isUHS1kSensor() {
+    const sensorID = document.getElementById("sensorID").value;
+    return sensorID && (sensorID.includes("TEST1K") || sensorID.includes("UHS-1k") || sensorID.includes("UHS1k"));
+}
 
 async function showReading() {
-    if (readingInterval) {
-        clearInterval(readingInterval);  // Clear any existing interval
-    }
+    // If we are already polling, do nothing
+    if (isStart) return;
+
+    console.log('[Reading] showReading called. Starting polling loop.');
+
+    // Update UI state
     document.getElementById("stop").style.display = "block";
     document.getElementById("read").style.display = "none";
-    // document.getElementById("averageReading").style.display = "none";
+
     isStart = true;
-    let sum =0, avg=0,isPush=false, counter=0;
-    console.log('avg reading count:',avgCount);
+
+    // Check if this is a UHS-1k sensor for optimized polling
+    const isUHS1k = isUHS1kSensor();
+    
+    // Averaging helpers
+    let sum = 0, counter = 0;
+    let inFetch = false; // Prevent overlapping fetches
+
+    // Poll sensor at different rates based on sensor type
+    // UHS-1k sensors work better with faster polling due to W command
+    const pollInterval = isUHS1k ? 100 : 200; // 10 Hz for UHS-1k, 5 Hz for others
+    
+    console.log(`Starting polling loop for ${isUHS1k ? 'UHS-1k' : 'standard'} sensor at ${1000/pollInterval} Hz`);
+
     readingInterval = setInterval(async () => {
-        const sensorData = await fetchSensorData();
-        const convertedData = convertUnits(sensorData/1000);
-        if(counter<avgCount)
-        {
-            isPush = false;
-            sum+=parseFloat(convertedData);
+        if (!isStart) return;
+        if (inFetch) return;
+        inFetch = true;
+        try {
+            const { weight, deviceUnit } = await fetchDeviceWeightAndUnit();
+            if (isNaN(weight)) {
+                console.log('Received NaN weight, skipping...');
+                return; // Skip invalid readings
+            }
+
+            // Use weight directly without scale factor
+            let value = weight;
+            
+            const fromUnit = canonicalUnit(deviceUnit) || currentUnit;
+            const toUnit = _currentUnit;
+            if (conversionFactors[fromUnit] && conversionFactors[fromUnit][toUnit]) {
+                value = value * conversionFactors[fromUnit][toUnit];
+            }
+
+            // Apply software tare offset
+            value = value - tareOffset;
+
+            // Live display
+            document.getElementById("outputReading").textContent = `${value.toFixed(currentResolution)} ${toUnit}`;
+
+            // Accumulate for averaging
+            sum += value;
             counter++;
-        }
-        else
-        {
-            avg = sum/avgCount;
-            sum=0;
-            counter=0;
-            isPush=true;
-        }
-        const _convertedData = avg.toFixed(currentResolution);
-        const now = new Date().toLocaleTimeString();
-        if(isPush){
-            document.getElementById("outputReading").textContent = `${_convertedData} ${_currentUnit}`;
 
-        // Update chart data arrays
-        chartData.push(_convertedData);
-        chartLabels.push(now);
+            if (counter >= avgCount) {
+                const avg = sum / avgCount;
+                sum = 0;
+                counter = 0;
 
-        // Add the data to the table
-        addToTable(now, `${_convertedData}`);
+                const now = new Date().toLocaleTimeString();
+                const avgStr = avg.toFixed(currentResolution);
 
-        // Update the chart based on the current mode
-        if (chartMode === 'cumulative') {
-            showCumulativeGraph();
-        } else if (chartMode === 'recent') {
-            showRecentGraph();
+                // Use numeric average for chart data
+                chartData.push(avg);
+                chartLabels.push(now);
+                addToTable(now, avgStr);
+
+                if (chartMode === 'cumulative') {
+                    showCumulativeGraph();
+                } else if (chartMode === 'recent') {
+                    showRecentGraph();
+                }
+
+                if (avg > peakValue || !isFinite(peakValue)) {
+                    peakValue = avg;
+                    document.getElementById("peak-value").textContent = peakValue.toFixed(currentResolution);
+                }
+                if (avg < lowValue || !isFinite(lowValue)) {
+                    lowValue = avg;
+                    document.getElementById("low-value").textContent = lowValue.toFixed(currentResolution);
+                }
+            }
+        } catch (err) {
+            console.error('Error in polling loop:', err);
+        } finally {
+            inFetch = false;
         }
-
-        // Update peak and low values
-    if (convertedData > peakValue) {
-        peakValue = _convertedData;
-        document.getElementById("peak-value").textContent = `${peakValue}`;
-    }
-    if (convertedData < lowValue) {
-        lowValue = _convertedData;
-        document.getElementById("low-value").textContent = `${lowValue}`;
-    }
-        }
-        
-    }, 100);  // Update reading every 1000 ms (1 second)
+    }, pollInterval);
 }
 
 async function tare() {
-    stopReading()
+    stopReading();
     if(chartData.length) {
-    clearTable();
-    chartLabels = []
-    chartData = []
-    showCumulativeGraph()
-    }        
+        clearTable();
+        chartLabels = [];
+        chartData = [];
+        showCumulativeGraph();
+    }
+    
+    // Check if this is a UHS-1k sensor
+    const isUHS1k = isUHS1kSensor();
+    
+    if (isUHS1k) {
+        // For UHS-1k, use hardware tare command
+        try {
+            await tareCmd();
+            console.log('UHS-1k hardware tare completed');
+        } catch (error) {
+            console.error('UHS-1k hardware tare failed:', error);
+        }
+    } else {
+        // For other sensors, use software tare
+        // Get the current reading as tare offset
+        const { weight, deviceUnit } = await fetchDeviceWeightAndUnit();
+        const fromUnit = canonicalUnit(deviceUnit) || currentUnit;
+        const toUnit = _currentUnit;
+        let value = weight; // Use weight directly without scaling
+        if (conversionFactors[fromUnit] && conversionFactors[fromUnit][toUnit]) {
+            value = value * conversionFactors[fromUnit][toUnit];
+        }
+        tareOffset = value;
+    }
+    
     // Reset current reading to zero
     document.getElementById("outputReading").textContent = `0.00 ${_currentUnit}`;
 
     // Reset peak and low values to N/A
-    peakValue = -Infinity;
-    lowValue = Infinity;
+    peakValue = Number.NEGATIVE_INFINITY;
+    lowValue = Number.POSITIVE_INFINITY;
     document.getElementById("peak-value").textContent = `N/A`;
     document.getElementById("low-value").textContent = `N/A`;
-    await tareCmd();
 }
 
 var _currentUnit = currentUnit;
 
 function updateUnits() {
-if(document.getElementById("unitSelect").value!=_currentUnit)
-{
-if(confirm("Unit changes in mid of reading, may clear all prev readings. do you want to clear all prev data?"))
-{
-    stopReading();
-}
-}
-    _currentUnit = document.getElementById("unitSelect").value;
-removeTableHead();
+    const prevUnit = _currentUnit;
+    const newUnit = document.getElementById("unitSelect").value;
+    if(newUnit != _currentUnit) {
+        if(confirm("Unit changes in mid of reading, may clear all prev readings. do you want to clear all prev data?")) {
+            stopReading();
+        }
+        // Convert all chartData values to new unit
+        if (conversionFactors[prevUnit] && conversionFactors[prevUnit][newUnit]) {
+            const factor = conversionFactors[prevUnit][newUnit];
+            for (let i = 0; i < chartData.length; i++) {
+                chartData[i] = (parseFloat(chartData[i]) * factor).toFixed(currentResolution);
+            }
+            // Convert peak and low values
+            if (isFinite(peakValue)) {
+                peakValue = parseFloat(peakValue) * factor;
+            }
+            if (isFinite(lowValue)) {
+                lowValue = parseFloat(lowValue) * factor;
+            }
+        }
+        // Update main display if a value is shown
+        const outputElem = document.getElementById("outputReading");
+        if (outputElem && outputElem.textContent && outputElem.textContent.trim() !== "") {
+            const match = outputElem.textContent.match(/([-+]?\d*\.?\d+)/);
+            if (match && conversionFactors[prevUnit] && conversionFactors[prevUnit][newUnit]) {
+                const value = parseFloat(match[1]);
+                const converted = (value * conversionFactors[prevUnit][newUnit]).toFixed(currentResolution);
+                outputElem.textContent = `${converted} ${newUnit}`;
+            } else {
+                outputElem.textContent = `0.00 ${newUnit}`;
+            }
+        }
+        // Update peak and low display
+        document.getElementById("peak-value").textContent = isFinite(peakValue) ? peakValue.toFixed(currentResolution) : "N/A";
+        document.getElementById("low-value").textContent = isFinite(lowValue) ? lowValue.toFixed(currentResolution) : "N/A";
+        // Update table rows
+        const tableRows = document.querySelectorAll("#data-table tbody tr");
+        for (let row of tableRows) {
+            // Reading is in 2nd cell, peak in 3rd, low in 4th
+            let readingCell = row.children[1];
+            let peakCell = row.children[2];
+            let lowCell = row.children[3];
+            if (readingCell && conversionFactors[prevUnit] && conversionFactors[prevUnit][newUnit]) {
+                let val = parseFloat(readingCell.textContent);
+                if (!isNaN(val)) readingCell.textContent = (val * conversionFactors[prevUnit][newUnit]).toFixed(currentResolution);
+            }
+            if (peakCell && conversionFactors[prevUnit] && conversionFactors[prevUnit][newUnit]) {
+                let val = parseFloat(peakCell.textContent);
+                if (!isNaN(val)) peakCell.textContent = (val * conversionFactors[prevUnit][newUnit]).toFixed(currentResolution);
+            }
+            if (lowCell && conversionFactors[prevUnit] && conversionFactors[prevUnit][newUnit]) {
+                let val = parseFloat(lowCell.textContent);
+                if (!isNaN(val)) lowCell.textContent = (val * conversionFactors[prevUnit][newUnit]).toFixed(currentResolution);
+            }
+        }
+        // Re-render chart
+        if (typeof showCumulativeGraph === 'function') showCumulativeGraph();
+    }
+    _currentUnit = newUnit;
+    currentUnit = _currentUnit; // Update the global currentUnit variable
+    removeTableHead();
     createTableHead();
-const tableBody = document.querySelector('#data-table tbody'); // Select the table body
-const table = tableBody.parentElement; // Get the table element
-table.insertBefore(createTableHead(), tableBody); // Insert the table head before the table body
+    const tableBody = document.querySelector('#data-table tbody'); // Select the table body
+    const table = tableBody.parentElement; // Get the table element
+    table.insertBefore(createTableHead(), tableBody); // Insert the table head before the table body
     console.log('Units changed to:', currentUnit);
 }
 
@@ -453,10 +699,19 @@ function updateResolution() {
     return true;
 }
 
-function convertUnits(value) {
-    const _conversionFactors = conversionFactors[currentUnit];
-    console.log('selected unit conversion units:',_conversionFactors);
-    return (value * _conversionFactors[_currentUnit]).toFixed(currentResolution);
+
+// Generic helper that converts a numeric value from one unit to another and applies
+// the current resolution.  If either unit is missing from the lookup table we
+// simply return the original value so we never crash the UI.
+function convertUnits(value, from = currentUnit, to = _currentUnit) {
+    // Bail out early if we do not have both conversion factors
+    if (!conversionFactors[from] || !conversionFactors[from][to]) {
+        console.warn(`No conversion factor from ${from} to ${to}. Returning raw value.`);
+        return Number(value).toFixed(currentResolution);
+    }
+
+    const converted = value * conversionFactors[from][to];
+    return Number(converted).toFixed(currentResolution);
 }
 
 function clearTable() {
@@ -560,6 +815,8 @@ function initializeChart() {
             }]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 xAxes: [{
                     gridLines: {
@@ -636,12 +893,98 @@ tableHead.appendChild(headerRow);
 return tableHead;
 }
 
+// Tab switching functionality
+function switchTab(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(button => {
+        button.classList.remove('active-tab');
+    });
+    
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + '-tab');
+    if (selectedTab) {
+        selectedTab.style.display = 'block';
+        
+        // Initialize highspeed chart when highspeed tab is shown
+        if (tabName === 'highspeed' && typeof initializeHighspeedChart === 'function') {
+            console.log('Initializing highspeed chart...');
+            // Use setTimeout to ensure the tab is fully visible before initializing chart
+            setTimeout(() => {
+                console.log('Calling initializeHighspeedChart...');
+                initializeHighspeedChart();
+            }, 100);
+        }
+        
+        // Resize chart when switching to standard tab
+        if (tabName === 'standard') {
+            setTimeout(() => {
+                resizeChart();
+            }, 100);
+        }
+        
+        // Resize highspeed chart when switching to highspeed tab
+        if (tabName === 'highspeed' && typeof resizeHighspeedChart === 'function') {
+            setTimeout(() => {
+                resizeHighspeedChart();
+            }, 100);
+        }
+    }
+    
+    // Add active class to selected tab button
+    const selectedButton = document.querySelector(`[data-tab="${tabName}"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active-tab');
+    }
+    
+    // Update button visibility based on tab
+    if (tabName === 'standard') {
+        // Hide highspeed instructions
+        const hsInstr = document.getElementById('highspeed-instructions');
+        if (hsInstr) hsInstr.style.display = 'none';
+        // Show standard reading buttons when connected
+        if (window.port) {
+            document.getElementById("tare").style.display = "block";
+            document.getElementById("read").style.display = "block";
+        }
+    } else if (tabName === 'highspeed') {
+        // Show highspeed instructions
+        const hsInstr = document.getElementById('highspeed-instructions');
+        if (hsInstr) hsInstr.style.display = 'block';
+        // Show high-speed buttons when connected
+        if (window.port) {
+            document.getElementById("highspeed-sendBtn").style.display = "inline-block";
+            document.getElementById("highspeed-stopBtn").style.display = "inline-block";
+            document.getElementById("highspeed-tareBtn").style.display = "inline-block";
+        }
+    }
+}
+
+// Function to resize chart when container size changes
+function resizeChart() {
+    if (chart) {
+        chart.resize();
+    }
+}
+
 // Call initializeChart() on document ready
 document.addEventListener('DOMContentLoaded', function() {
     initializeChart();
     createTableHead();
-const tableBody = document.querySelector('#data-table tbody'); // Select the table body
-const table = tableBody.parentElement; // Get the table element
-table.insertBefore(createTableHead(), tableBody); // Insert the table head before the table body
-document.getElementById("graphtype").textContent = chartMode === 'cumulative'? 'Cumulative': 'Strip Chart';
+    const tableBody = document.querySelector('#data-table tbody'); // Select the table body
+    const table = tableBody.parentElement; // Get the table element
+    table.insertBefore(createTableHead(), tableBody); // Insert the table head before the table body
+    document.getElementById("graphtype").textContent = chartMode === 'cumulative'? 'Cumulative': 'Strip Chart';
+    
+    // Initialize with standard tab active
+    switchTab('standard');
+    
+    // Add resize event listener
+    window.addEventListener('resize', resizeChart);
 });
