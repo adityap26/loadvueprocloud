@@ -10,11 +10,18 @@ let lowValue = 0.00;  // Initialize low value
 let currentUnit = "lb";  // Default unit
 let currentResolution = 2;  // Default resolution (x.xx)
 const conversionFactors = {
-    lb: { lb: 1, kg: 0.453592, g: 453.592, N: 4.44822 },
-    kg: { lb: 2.20462, kg: 1, g: 1000, N: 9.81 },
-    g: { lb: 453.59, kg: 0.001, g: 1, N: 0.0098 },
-    N: { lb: 0.22480, kg: 0.10197, g: 101.972, N: 1 }
+    lb: { lb: 1, kg: 0.453592, g: 453.592, N: 4.44822, "N-m": 1.35582, "LBF-FT": 1, mm: 25.4, in: 1 },
+    kg: { lb: 2.20462, kg: 1, g: 1000, N: 9.81, "N-m": 9.81, "LBF-FT": 7.233, mm: 1000, in: 39.3701 },
+    g: { lb: 0.00220462, kg: 0.001, g: 1, N: 0.00981, "N-m": 0.00981, "LBF-FT": 0.007233, mm: 1, in: 0.0393701 },
+    N: { lb: 0.22480, kg: 0.10197, g: 101.972, N: 1, "N-m": 1, "LBF-FT": 0.737562, mm: 1000, in: 39.3701 },
+    "N-m": { lb: 0.737562, kg: 0.10197, g: 101.972, N: 1, "N-m": 1, "LBF-FT": 0.737562, mm: 1000, in: 39.3701 },
+    "LBF-FT": { lb: 1, kg: 0.138255, g: 138.255, N: 1.35582, "N-m": 1.35582, "LBF-FT": 1, mm: 1355.82, in: 53.3787 },
+    mm: { lb: 0.0393701, kg: 0.001, g: 1, N: 0.001, "N-m": 0.001, "LBF-FT": 0.000737562, mm: 1, in: 0.0393701 },
+    in: { lb: 1, kg: 0.0254, g: 25.4, N: 0.0254, "N-m": 0.0254, "LBF-FT": 0.018733, mm: 25.4, in: 1 }
 };  // Conversion factors
+
+// Displacement sensor scaling factor - raw values are in micrometers, need to divide by 1000 for mm
+const displacementScalingFactor = 0.001; // 1/1000 to convert μm to mm
 
 // Global reader for consistent stream management
 var globalReader;
@@ -62,9 +69,23 @@ async function connectSerial() {
             'lb': 'lb',
             'kg': 'kg',
             'g': 'g',
-            'n': 'N'
+            'n': 'N',
+            'n-m': 'N-m',
+            'nm': 'N-m',
+            'newton-meter': 'N-m',
+            'newton meter': 'N-m',
+            'lbf-ft': 'LBF-FT',
+            'lbft': 'LBF-FT',
+            'pound-foot': 'LBF-FT',
+            'pound foot': 'LBF-FT',
+            'mm': 'mm',
+            'millimeter': 'mm',
+            'millimeters': 'mm',
+            'in': 'in',
+            'inch': 'in',
+            'inches': 'in'
         };
-        currentUnit = unitsMapping[_currentUnit];
+        currentUnit = unitsMapping[_currentUnit] || _currentUnit;
         document.getElementById("unitSelect").value = currentUnit;
         }
 
@@ -312,8 +333,15 @@ async function fetchDeviceWeightAndUnit() {
         }
 
         console.log('Final received data:', result);
-        const weight = parseFloat(result.trim());
+        let weight = parseFloat(result.trim());
         const deviceUnit = document.getElementById("sensorUnits").value || currentUnit;
+        
+        // Apply displacement scaling factor if the sensor unit is mm or in
+        const canonicalDeviceUnit = canonicalUnit(deviceUnit);
+        if (canonicalDeviceUnit === 'mm' || canonicalDeviceUnit === 'in') {
+            weight = weight * displacementScalingFactor;
+        }
+        
         return { weight, deviceUnit };
     } catch (error) {
         console.error('Error reading data:', error);
@@ -365,8 +393,14 @@ async function fetchUHS1kWeightAndUnit() {
         }
 
         console.log('Final UHS-1k received data:', result);
-        const weight = parseFloat(result.trim());
+        let weight = parseFloat(result.trim());
         const deviceUnit = document.getElementById("sensorUnits").value || currentUnit;
+        
+        // Apply displacement scaling factor if the sensor unit is mm or in
+        const canonicalDeviceUnit = canonicalUnit(deviceUnit);
+        if (canonicalDeviceUnit === 'mm' || canonicalDeviceUnit === 'in') {
+            weight = weight * displacementScalingFactor;
+        }
         
         // Validate the weight reading
         if (isNaN(weight)) {
@@ -421,7 +455,11 @@ function canonicalUnit(u){
     if(s.includes('lb')) return 'lb';
     if(s.includes('kg')) return 'kg';
     if(s === 'g' || s.includes('gram')) return 'g';
-    if(s.startsWith('n')) return 'N'; // Newtons
+    if(s.startsWith('n') && !s.includes('m')) return 'N'; // Newtons (but not N-m)
+    if(s.includes('n-m') || s.includes('nm') || s.includes('newton') || s.includes('newton-meter')) return 'N-m';
+    if(s.includes('lbf-ft') || s.includes('lbft') || s.includes('pound') || s.includes('pound-foot')) return 'LBF-FT';
+    if(s === 'mm' || s.includes('millimeter') || s.includes('millimeters')) return 'mm';
+    if(s === 'in' || s.includes('inch') || s.includes('inches')) return 'in';
     if(s.includes('mlb')) return 'mlb'; // Millipounds
     return s; // fallback
 }

@@ -264,17 +264,28 @@ async function highspeedRefreshSWC() {
 function highspeedConvertCountsToLoad(counts) {
     // Apply software tare (counts offset)
     const netCounts = Number(counts) - (Number(highspeedTareOffsetCounts) || 0);
+    let loadValue;
+    
     // Preferred: use SWC (Weight per Count) if available
     if (typeof highspeedCurrentSWC === 'number' && isFinite(highspeedCurrentSWC)) {
-        return netCounts * highspeedCurrentSWC;
+        loadValue = netCounts * highspeedCurrentSWC;
     }
     // Fallback: apply legacy linear calibration if available
-    if (typeof window._weightPerRaw === 'number' && typeof window._weightOffset === 'number') {
-        return window._weightPerRaw * netCounts + window._weightOffset;
+    else if (typeof window._weightPerRaw === 'number' && typeof window._weightOffset === 'number') {
+        loadValue = window._weightPerRaw * netCounts + window._weightOffset;
     }
     // No scaling factor - use counts directly
-    console.warn('Calibration not available (SWC/linear). Using raw counts');
-    return netCounts;
+    else {
+        console.warn('Calibration not available (SWC/linear). Using raw counts');
+        loadValue = netCounts;
+    }
+    
+    // Apply displacement scaling factor if the current unit is mm or in
+    if (typeof currentUnit !== 'undefined' && (currentUnit === 'mm' || currentUnit === 'in')) {
+        loadValue = loadValue * 0.001; // Convert from micrometers to millimeters
+    }
+    
+    return loadValue;
 }
 
 // Format load for display with up to 3 decimal places
@@ -769,7 +780,7 @@ function initializeHighspeedChart() {
             datasets: [{
                 label: 'High-Speed Sensor Reading',
                 backgroundColor: 'rgba(0, 0, 0, 0)', // Transparent background for the line
-                borderColor: 'rgba(0, 255, 0, 1)', // Green color for high-speed data
+                borderColor: 'rgba(255, 99, 132, 1)', // Red color to match standard chart
                 data: highspeedChartData,
                 fill: false,
                 tension: 0 // Disable bezier curves for better performance
@@ -783,6 +794,9 @@ function initializeHighspeedChart() {
                     gridLines: {
                         color: 'rgba(255, 255, 255, 0.1)' // Lighter grid lines for better visibility
                     },
+                    ticks: {
+                        color: 'white' // White text for x-axis labels
+                    },
                     type: 'time',
                     time: {
                         unit: 'second',
@@ -794,6 +808,9 @@ function initializeHighspeedChart() {
                 yAxes: [{
                     gridLines: {
                         color: 'rgba(255, 255, 255, 0.1)' // Lighter grid lines for better visibility
+                    },
+                    ticks: {
+                        color: 'white' // White text for y-axis labels
                     }
                 }]
             },
@@ -803,6 +820,11 @@ function initializeHighspeedChart() {
                 }
             },
             plugins: {
+                legend: {
+                    labels: {
+                        color: 'white' // White text for legend
+                    }
+                },
                 decimation: {
                     enabled: true,
                     algorithm: 'min-max', // Choose the decimation algorithm

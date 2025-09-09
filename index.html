@@ -229,6 +229,13 @@
         display: block;
     }
     
+    #highspeed-dataChart {
+        background-color: #000000; /* Set the background color to black for high-speed chart */
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    
     #graph-container {
         background-color: #000000;
         border: 1px solid #ccc;
@@ -342,6 +349,10 @@
                     <option value="kg">kg</option>
                     <option value="g">g</option>
                     <option value="N">N</option>
+                    <option value="N-m">N-m</option>
+                    <option value="LBF-FT">LBF-FT</option>
+                    <option value="mm">mm</option>
+                    <option value="in">in</option>
                 </select>
             </div>
             <div class="horizontal-align" style="margin-top:10px;">
@@ -458,13 +469,8 @@
             <div style="margin-bottom: 10px;">
                 <div style="font-weight: bold; margin-bottom: 5px;">High-Speed Plot:</div>
                 <div style="display: flex;">
-                    <div id="highspeed-graph-container" style="width: 75%; height: 30vh;">
-                        <canvas id="highspeed-dataChart" style="width: 100%; height: 100%;"></canvas>
-                    </div>
-                    <div id="highspeed-right-section" class="horizontal-align" style="width: 25%; padding-left: 10px;">
-                        <button onclick="showHighspeedCumulativeGraph()" style="color:white; width: 100%; height: 25px; margin-bottom: 5px;">Cumulative</button>
-                        <button onclick="showHighspeedRecentGraph()" style="color:white; width: 100%; height: 25px; margin-bottom: 5px;">Strip Chart</button>
-                        <button onclick="initializeHighspeedChart()" style="color:white; width: 100%; height: 25px; margin-bottom: 5px; background-color: #444;">Init Chart</button>
+                    <div id="highspeed-graph-container" style="width: 100%; height: 30vh; background-color: #000000; border: 1px solid #ccc; box-sizing: border-box;">
+                        <canvas id="highspeed-dataChart" style="width: 100%; height: 100%; display: block;"></canvas>
                     </div>
                 </div>
             </div>
