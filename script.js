@@ -945,12 +945,18 @@ function switchTab(tabName) {
     
     // Update button visibility based on tab
     if (tabName === 'standard') {
+        // Hide highspeed instructions
+        const hsInstr = document.getElementById('highspeed-instructions');
+        if (hsInstr) hsInstr.style.display = 'none';
         // Show standard reading buttons when connected
         if (window.port) {
             document.getElementById("tare").style.display = "block";
             document.getElementById("read").style.display = "block";
         }
     } else if (tabName === 'highspeed') {
+        // Show highspeed instructions
+        const hsInstr = document.getElementById('highspeed-instructions');
+        if (hsInstr) hsInstr.style.display = 'block';
         // Show high-speed buttons when connected
         if (window.port) {
             document.getElementById("highspeed-sendBtn").style.display = "inline-block";
